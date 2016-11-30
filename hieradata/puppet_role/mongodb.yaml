@@ -1,3 +1,16 @@
 ---
 profile::mongodb::replset_auth_enable: '%{::mongo_replset_auth_enable}'
 profile::mongodb::mongodb_nodes: "%{::mongodb_nodes}"
+profile::mongodb::storage_device: "%{::storage_device}"
+
+cloudwatch::metrics:
+  DiskSpace:
+    type              : diskspace
+    params            : '-f /var/lib/mongo'
+    unit              : Percent
+    description       : 'Percentage of used disk space for mongodb data'
+    statistic         : 'Average'
+    period            : 300
+    evaluationperiods : 3
+    threshold         : 80
+    comparisonoperator: "GreaterThanThreshold"

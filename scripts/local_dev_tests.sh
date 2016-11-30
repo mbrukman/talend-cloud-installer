@@ -28,6 +28,7 @@ ${SCRIPT_NAME} [options]
     -h: this message
     -c: clean legacy installation before launching test
     -l: list available tests and exit
+    -s: syntax check only and exit
     -t testname: launch this specific test only
 
   Example of use:
@@ -35,6 +36,12 @@ ${SCRIPT_NAME} [options]
   launch all the test but (re)install everything before: ${SCRIPT_NAME} -c
   list the tests availables: ${SCRIPT_NAME} -l
   launch a specific test:  ${SCRIPT_NAME} -t "role-frontend-centos-72"
+  launch a syntax check: ${SCRIPT_NAME} -s
+
+  Tips:
+    if the syntax check fail with alignment errors, maybe you can fix it with the following command for each file in error:
+    bundle exec puppet-lint --fix \$PWD/filepath-given-in-error.pp
+
 EOF
   return 0
 }
@@ -65,14 +72,16 @@ fWarning(){
 TEST_NAME="all"
 LIST_MODE=0
 CLEAN_MODE=0
+SYNTAX_ONLY=0
 
-while getopts hclt: option
+while getopts hclst: option
 do
   case "${option}" in
     h) fShowHelp; exit $?;;
     c) export CLEAN_MODE=1;;
     l) export LIST_MODE=1;;
     t) export TEST_NAME="${OPTARG}";;
+    s) export SYNTAX_ONLY=1;;
     \?) fShowHelp;  fError "Unknown option -${option}";;
   esac
 done
@@ -111,7 +120,14 @@ if [ ${LIST_MODE} -eq 1 ]; then
   exit $?
 fi
 
+fTitle "Validating code"
+bundle exec rake validate lint spec
+RETURN=$?
+test $SYNTAX_ONLY -eq 1 && exit $RETURN
+
+
 ### Verifying environment for Vagrant
+fTitle "Preparing test vars"
 if [ -z "${PACKAGECLOUD_MASTER_TOKEN}" ]; then
   fWarning "PACKAGECLOUD_MASTER_TOKEN env var is not set"
   /bin/echo -n "Please give me the PackageCloud Master Token: "
@@ -143,9 +159,6 @@ if [ -z "${AWS_SECRET_ACCESS_KEY}" ]; then
 fi
 
 ### test !
-fTitle "Validating code"
-bundle exec rake validate lint spec
-
 fTitle "Execute tests"
 bundle exec kitchen test ${TEST_NAME}
 exit $?

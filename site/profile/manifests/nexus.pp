@@ -6,7 +6,7 @@ class profile::nexus (
   $nexus_root       = '/srv',
   $nexus_nodes      = '', # A string f.e. '[ "10.0.2.12", "10.0.2.23" ]'
   $nexus_nodes_port = '8081',
-
+  $storage_device   = undef,
 ) {
 
   require ::profile::java
@@ -14,6 +14,9 @@ class profile::nexus (
 
   include ::nginx
   include ::profile::common::concat
+  # $nexus_root configured in hiera for monitoring
+  # FIXME rework cloudwatch to add defines and so manage easily each mount in each profiles
+  include ::profile::common::cloudwatch
   include ::profile::common::cloudwatchlogs
 
   profile::register_profile { 'nexus': }
@@ -46,6 +49,44 @@ allow httpd_t transproxy_port_t:tcp_socket name_connect;
   } else {
     $_nexus_nodes_port = '8081'
   }
+
+  if $storage_device {
+    filesystem { $storage_device:
+      ensure  => present,
+      fs_type => 'xfs',
+      options => '-f',
+      before  => Class['::nexus']
+    }
+
+    #creates parent path if absent
+    exec { "mkdir-${nexus_root}":
+      command => "mkdir -p ${nexus_root}",
+      creates => $nexus_root,
+      path    => '/bin:/usr/bin',
+      before  => Class['::nexus']
+    }
+
+    #configure the disk before mounting
+    exec { "fix-readahead-${storage_device}":
+      command => "/sbin/blockdev --setra 32 ${storage_device}",
+      unless  => "/sbin/blockdev --getra ${storage_device} | grep -w 32",
+      require => Filesystem[$storage_device],
+    }
+
+    #mount the storage volume, rights will be put by nexus class
+    mount { $nexus_root:
+      ensure  => 'mounted',
+      device  => $storage_device,
+      fstype  => 'xfs',
+      options => 'noatime,nodiratime',
+      atboot  => true,
+      require => [ Filesystem[$storage_device],
+                    Exec["mkdir-${nexus_root}"],
+                    Exec["fix-readahead-${storage_device}"] ],
+      before  => Class['::nexus']
+    }
+  }
+
 
   class { '::nexus':
     version    => '2.8.0',

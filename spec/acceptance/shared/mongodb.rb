@@ -12,6 +12,20 @@ shared_examples 'profile::mongodb' do
     it { should be_listening }
   end
 
+  describe file('/var/lib/mongo') do
+    it do
+      should be_mounted.with(
+        :type    => 'xfs',
+        :options => {
+          :rw         => true,
+          :noatime    => true,
+          :nodiratime => true,
+          :noexec     => true
+        }
+      )
+    end
+  end
+
   describe command('/usr/bin/mongo -u admin -p mypassword ipaas --eval "printjson(db.getUser(\'admin\'));" | /usr/bin/tr -d "\t\n "') do
     its(:stdout) { should include '{"role":"userAdminAnyDatabase","db":"admin"}' }
     its(:stdout) { should include '{"role":"dbAdminAnyDatabase","db":"admin"}' }

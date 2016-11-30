@@ -68,9 +68,14 @@ suites:
       patterns:
         - 'spec/acceptance/elasticsearch_spec.rb'
   - name: role-nexus
+    driver:
+      vagrantfiles:
+        - vagrant/second_disk.rb
     provisioner:
       custom_facts:
         puppet_role: nexus
+        cfn_resource_name: InstanceA
+        storage_device: /dev/sdb
     verifier:
       patterns:
         - 'spec/acceptance/nexus_spec.rb'
@@ -96,9 +101,14 @@ suites:
       patterns:
         - 'spec/acceptance/zookeeper_spec.rb'
   - name: role-mongodb
+    driver:
+      vagrantfiles:
+        - vagrant/second_disk.rb
     provisioner:
       custom_facts:
         puppet_role: mongodb
+        cfn_resource_name: InstanceA
+        storage_device: /dev/sdb
     verifier:
       patterns:
         - 'spec/acceptance/mongodb_spec.rb'
